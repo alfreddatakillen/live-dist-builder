@@ -15,7 +15,7 @@ fi
 # BUILD DOCKER ENV
 if [ "$STAGE" = "1" ]; then
 
-	log STAGE 1
+	log "STAGE 1"
 
 	log Build docker container.
 	docker build -t machine .
@@ -28,7 +28,7 @@ fi
 
 if [ "$STAGE" = "2" ]; then
 
-	log "STAGE 2 (we are in docker env now)"
+	log "STAGE 2 (in docker env)"
 
 	log Debootstrapping.
 	if [ ! -e chroot ]; then
@@ -43,7 +43,73 @@ if [ "$STAGE" = "2" ]; then
 	log "Start chroot (stage 3)."
 	chroot chroot /root/run.sh 3
 
-	log "LAST STAGE (put it together)"
+	log "Start stage 4"
+	./run.sh 4
+fi
+
+if [ "$STAGE" = "3" ]; then
+	log "STAGE 3 (in chroot env)"
+
+	mount none -t proc /proc
+	mount none -t sysfs /sys 
+	mount none -t devpts /dev/pts
+
+	log Install kernel.
+	apt-get install -y linux-image-amd64
+
+	log Set machine ID.
+	if [ ! -e /var/lib/dbus/machine-id ]; then
+		if [ -e /etc/machine-id ]; then
+			mkdir -p /var/lib/dbus
+			cp /etc/machine-id /var/lib/dbus/machine-id
+		else 
+			apt-get install dialog dbus --yes --force-yes
+			mkdir -p /var/lib/dbus
+			dbus-uuidgen > /var/lib/dbus/machine-id
+		fi
+	fi
+	if [ ! -e /etc/machine-id ]; then
+		cp /var/lib/dbus/machine-id /etc/machine-id
+	fi
+
+	log Set hostname.
+	if [ "$(cat /etc/hostname)" != "$HOSTNAME" ]; then
+		echo "$HOSTNAME" >/etc/hostname
+	fi
+	echo "127.0.0.1	$(cat /etc/hostname)" >>/etc/hosts
+
+	log Create user and fix permissions.
+	useradd -m user -s /bin/bash
+	mkdir -p /etc/systemd/system/getty@tty1.service.d
+	cat >/etc/systemd/system/getty@tty1.service.d/autologin.conf <<_EOF_
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin user --noclear %I 38400 linux
+_EOF_
+	apt-get install sudo
+	cat >/etc/sudoers.d/999-nopasswd <<_EOF_
+user   ALL=(ALL:ALL) NOPASSWD:ALL
+_EOF_
+
+	log Install kernel and live boot stuff.
+	apt-get install -y \
+		linux-image-amd64 \
+		live-boot
+
+	# Add cool stuff here...
+
+	log Clean up chroot.
+	apt-get clean
+	rm -rf /tmp/*
+	umount -lf /proc
+	umount -lf /sys 
+	umount -lf /dev/pts
+
+	log Leaving chroot.
+fi
+
+if [ "$STAGE" = "4" ]; then
+	log "STAGE 4 (back in docker env)"
 
 	log Unmount chroot/dev
 	umount -lf chroot/dev
@@ -72,7 +138,7 @@ UI menu.c32
 prompt 0
 menu title Boot Menu
 
-timeout 50
+timeout 40
 
 label Machine
 menu label ^Machine
@@ -132,65 +198,6 @@ _EOF_
 		log Unmount usb image file as loop device
 		losetup -d /dev/loop0
 	fi
-fi
-
-if [ "$STAGE" = "3" ]; then
-	log "STAGE 3 (we are in chroot now)"
-
-	mount none -t proc /proc
-	mount none -t sysfs /sys 
-	mount none -t devpts /dev/pts
-
-	log Install kernel.
-	apt-get install -y linux-image-amd64
-
-	log Set machine ID.
-	if [ ! -e /var/lib/dbus/machine-id ]; then
-		if [ -e /etc/machine-id ]; then
-			mkdir -p /var/lib/dbus
-			cp /etc/machine-id /var/lib/dbus/machine-id
-		else 
-			apt-get install dialog dbus --yes --force-yes
-			mkdir -p /var/lib/dbus
-			dbus-uuidgen > /var/lib/dbus/machine-id
-		fi
-	fi
-	if [ ! -e /etc/machine-id ]; then
-		cp /var/lib/dbus/machine-id /etc/machine-id
-	fi
-
-	log Set hostname.
-	if [ "$(cat /etc/hostname)" != "$HOSTNAME" ]; then
-		echo "$HOSTNAME" >/etc/hostname
-	fi
-	echo "127.0.0.1	$(cat /etc/hostname)" >>/etc/hosts
-
-	log Create user and fix permissions.
-	useradd -m user -s /bin/bash
-	mkdir -p /etc/systemd/system/getty@tty1.service.d
-	cat >/etc/systemd/system/getty@tty1.service.d/autologin.conf <<_EOF_
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin user --noclear %I 38400 linux
-_EOF_
-	apt-get install sudo
-	cat >/etc/sudoers.d/999-nopasswd <<_EOF_
-user   ALL=(ALL:ALL) NOPASSWD:ALL
-_EOF_
-
-	log Install kernel and live boot stuff.
-	apt-get install -y \
-		linux-image-amd64 \
-		live-boot
-
-	log Clean up chroot.
-	apt-get clean
-	rm -rf /tmp/*
-	umount -lf /proc
-	umount -lf /sys 
-	umount -lf /dev/pts
-
-	log Leaving chroot.
 fi
 
 popd >/dev/null 2>&1
