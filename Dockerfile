@@ -12,8 +12,6 @@ RUN apt-get -y install \
       pciutils \
       rsync
 
-RUN echo "building" >/machine.version
-
 WORKDIR /root/build
-CMD ./run.sh
+CMD [ "./run.sh", "2" ]
 

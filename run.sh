@@ -7,32 +7,43 @@ function log() {
 	echo -e "\n\e[90m--<\e[36m<\e[96m<\e[33m" $@ "\e[96m>\e[36m>\e[90m>--\e[0m"
 }
 
-# BUILD DOCKER ENV AND SET MACHINE_VER
-if [ ! -e /machine.version ]; then
+STAGE="$1"
+if [ "$STAGE" = "" ]; then
+	STAGE="1"
+fi
+
+# BUILD DOCKER ENV
+if [ "$STAGE" = "1" ]; then
+
+	log STAGE 1
+
+	log Build docker container.
 	docker build -t machine .
+
+	log Run docker container
 	docker run --privileged -v $PWD:/root/build -t machine
+
 	log Docker stopped.
 fi
-MACHINE_VER="$(cat /machine.version 2>/dev/null)"
 
-if [ "$MACHINE_VER" = "building" ]; then
+if [ "$STAGE" = "2" ]; then
 
-	log We are in docker env now.
+	log "STAGE 2 (we are in docker env now)"
 
 	log Debootstrapping.
 	if [ ! -e chroot ]; then
 		debootstrap --arch=amd64 --variant=minbase jessie chroot http://ftp.se.debian.org/debian
 	fi
 
-	echo "1.0.0" >chroot/machine.version
-
 	cp run.sh chroot/root/run.sh
 
 	log Mount dev to chroot/dev
 	mount -o bind /dev chroot/dev
 
-	log Start chroot.
-	chroot chroot /root/run.sh
+	log "Start chroot (stage 3)."
+	chroot chroot /root/run.sh 3
+
+	log "LAST STAGE (put it together)"
 
 	log Unmount chroot/dev
 	umount -lf chroot/dev
@@ -123,8 +134,8 @@ _EOF_
 	fi
 fi
 
-if [ "$MACHINE_VER" = "1.0.0" ]; then
-	log We are in chroot now.
+if [ "$STAGE" = "3" ]; then
+	log "STAGE 3 (we are in chroot now)"
 
 	mount none -t proc /proc
 	mount none -t sysfs /sys 
