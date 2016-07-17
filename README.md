@@ -14,4 +14,6 @@ Grab the code and build something cool! This example just builds a very thin Deb
 
 You probably should begin at row 174 in `run.sh`, installing and fixing stuff that you need for your own Live USB Linux Distribution.
 
+## Why is so much happening in `run.sh`, and not more being built from the `Dockerfile`?
 
+It is not possible to use `debootstrap` from the `Dockerfile`, since there is no privileged mode during docker build. Read more about it in this [open isseue](https://github.com/docker/docker/issues/1916).
