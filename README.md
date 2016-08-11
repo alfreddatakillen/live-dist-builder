@@ -6,6 +6,12 @@ Example: How to build an USB live distro within a docker container. Based on Deb
 
 This was made as an example on how to build your own USB live distribution within a Docker container, so your build environment just depends on docker, bash and an Internet connection.
 
+## Does it work?
+
+Yes.
+
+It's just an example though. A working example. And a boilerplate for you to hack around with yourself.
+
 ## How to use it?
 
 Run the `./run.sh` bash script. When finished, there will be an `usb.img`, which is the USB image file.
