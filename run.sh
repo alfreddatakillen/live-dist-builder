@@ -169,6 +169,10 @@ _EOF_
 
 		syslinux -i usb.img
 
+		if [ ! -e /dev/loop0 ]; then
+			mknod /dev/loop0 b 7 0
+		fi
+
 		log Mount usb image file as loop device
 		losetup -o $OFFSET /dev/loop0 usb.img
 
